@@ -1,5 +1,6 @@
 ﻿using JWTAuthentication.Models;
 using Microsoft.EntityFrameworkCore;
+using TestAPI;
 
 namespace JWTAuthentication.Database
 {
@@ -11,5 +12,6 @@ namespace JWTAuthentication.Database
         }
 
         public DbSet<User> Users { get; set; }
+        public DbSet<Superhero> Superheroes { get; set; }
     }
 }

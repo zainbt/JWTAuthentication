@@ -1,8 +1,10 @@
 ﻿using JWTAuthentication.Database;
 using JWTAuthentication.Models;
 using Microsoft.EntityFrameworkCore;
-using System.Reflection.Metadata.Ecma335;
 using System.Security.Cryptography;
+using System.Security.Claims;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace JWTAuthentication.Services.AuthService
 {
@@ -12,9 +14,11 @@ namespace JWTAuthentication.Services.AuthService
 
 
         private readonly DataContext _context;
-        public AuthRepository(DataContext context)
+        private readonly IConfiguration _configuration;
+        public AuthRepository(DataContext context, IConfiguration configuration)
         {
             _context = context;
+            _configuration = configuration;
         }
         public async Task<ServiceResponce<string>> Login(string email, string password)
         {
@@ -32,6 +36,7 @@ namespace JWTAuthentication.Services.AuthService
             }
             else
             {
+                response.Data = CreateToken(user);
                 response.Success = true;
                 response.Message = "Login Sucessfull";
             }
@@ -89,6 +94,35 @@ namespace JWTAuthentication.Services.AuthService
                 var computeHash = hmac.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
                 return computeHash.SequenceEqual(passwordHash);
             }
+        }
+
+        private string CreateToken(User user)
+        {
+            //Getting the Claims Information to be added in the token 
+            List<Claim> claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            };
+
+            //Getting the Secret key from the appSettings.Json file
+            SymmetricSecurityKey key = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(_configuration.GetSection("AppSettings:Token").Value));
+
+            //Credentials signing against the security key
+            SigningCredentials credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha512Signature);
+
+            //Creating the token just before the encryption with all the required information
+            SecurityTokenDescriptor tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(claims),
+                Expires = DateTime.Now.AddDays(1),
+                SigningCredentials = credentials
+            };
+
+            //Token handler to create and encrypt the token 
+            JwtSecurityTokenHandler tokenHandler = new JwtSecurityTokenHandler();
+            SecurityToken token = tokenHandler.CreateToken(tokenDescriptor);
+
+            return tokenHandler.WriteToken(token);
         }
     }
 }
